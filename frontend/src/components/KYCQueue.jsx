@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 
-const API = 'http://localhost:3001/api'
+const API = 'http://3.108.61.8:3001/api'
 
 export default function KYCQueue() {
   const [sessions, setSessions] = useState([])
+  const [uploading, setUploading] = useState({})
+  const [uploadedUrls, setUploadedUrls] = useState({})
+  const fileRefs = useRef({})
 
   useEffect(() => {
     fetchSessions()
@@ -20,6 +23,24 @@ export default function KYCQueue() {
   const updateStatus = async (id, status) => {
     await axios.put(`${API}/kyc/${id}/status`, { status })
     fetchSessions()
+  }
+
+  const uploadDocument = async (sessionId, file) => {
+    setUploading(prev => ({ ...prev, [sessionId]: true }))
+    try {
+      const res = await axios.post(`${API}/kyc/${sessionId}/upload`, file, {
+        headers: {
+          'Content-Type': file.type,
+          'x-file-name': file.name,
+        }
+      })
+      setUploadedUrls(prev => ({ ...prev, [sessionId]: res.data.url }))
+      alert(`Document uploaded successfully!`)
+    } catch (err) {
+      alert(`Upload failed: ${err.message}`)
+    } finally {
+      setUploading(prev => ({ ...prev, [sessionId]: false }))
+    }
   }
 
   const statusColor = {
@@ -48,6 +69,7 @@ export default function KYCQueue() {
           <p><strong>Document:</strong> {session.document_type}</p>
           <p><strong>Agent ID:</strong> {session.agent_id || 'Not assigned'}</p>
           <p><strong>Created:</strong> {new Date(session.created_at).toLocaleString()}</p>
+
           <div className="actions">
             {session.status === 'assigned' &&
               <button onClick={() => updateStatus(session.id, 'in-progress')}>Start Call</button>}
@@ -55,6 +77,30 @@ export default function KYCQueue() {
               <button onClick={() => updateStatus(session.id, 'completed')}>Complete</button>}
             {!['completed', 'cancelled'].includes(session.status) &&
               <button className="cancel" onClick={() => updateStatus(session.id, 'cancelled')}>Cancel</button>}
+          </div>
+
+          <div className="upload-section">
+            <input
+              type="file"
+              ref={el => fileRefs.current[session.id] = el}
+              style={{ display: 'none' }}
+              onChange={e => {
+                const file = e.target.files[0]
+                if (file) uploadDocument(session.id, file)
+              }}
+            />
+            <button
+              className="upload-btn"
+              onClick={() => fileRefs.current[session.id].click()}
+              disabled={uploading[session.id]}
+            >
+              {uploading[session.id] ? 'Uploading...' : '📎 Upload Document'}
+            </button>
+            {uploadedUrls[session.id] && (
+              <a href={uploadedUrls[session.id]} target="_blank" rel="noreferrer">
+                ✅ View Uploaded Doc
+              </a>
+            )}
           </div>
         </div>
       ))}

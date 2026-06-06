@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 
-const API = 'http://localhost:3001/api'
+const API = 'http://3.108.61.8:3001/api'
 
 export default function AgentPanel() {
   const [agents, setAgents] = useState([])
