@@ -64,11 +64,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to EC2 (placeholder)
+      - name: Deploy to EC2
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          echo "EC2 deployment will be configured when instance is running."
-          echo "Steps will include:"
-          echo "  1. SSH into EC2"
-          echo "  2. git pull"
-          echo "  3. npm install"
-          echo "  4. pm2 restart"
+          echo "$SSH_KEY" > /tmp/deploy_key.pem
+          chmod 400 /tmp/deploy_key.pem
+          ssh -i /tmp/deploy_key.pem -o StrictHostKeyChecking=no ubuntu@$EC2_HOST << 'ENDSSH'
+            cd ~/video-kyc-project
+            git pull origin main
+            cd backend
+            npm install
+            pm2 restart video-kyc-backend
+            pm2 save
+          ENDSSH
+          rm /tmp/deploy_key.pem
